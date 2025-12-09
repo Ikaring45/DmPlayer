@@ -1,0 +1,22 @@
+{
+  "short_name": "DmPlayer",
+  "name": "DmPlayer",
+  "description": "オフライン再生に対応したウェブオーディオプレイヤー",
+  "display": "standalone",
+  "start_url": "./",
+  "scope": "./",
+  "background_color": "#121212",
+  "theme_color": "#00e6b8",
+  "icons": [
+    {
+      "src": "icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
