@@ -1,17 +1,14 @@
 // キャッシュ名のバージョンを更新 (変更があるたびにバージョンを上げてください)
-const CACHE_NAME = 'dmplayer-v3.5'; 
-
-// キャッシュ名のバージョンを更新 (変更があるたびにバージョンを上げてください)
-const CACHE_NAME = 'dmplayer-v3.5';
+const CACHE_NAME = 'dmplayer-v3.0'; 
 const RUNTIME_CACHE = 'dmplayer-runtime-v1';
 
 // オフラインで使用したいリソースのリスト（アプリシェル）
 const urlsToCache = [
-    './', // index.html
-    './manifest.json',
-    './',
-    './icon-192x192.png',
-    './icon-512x512.png',
+    '/', // root path (for scope: /)
+    '/index.html', // index.htmlを明示的に追加
+    '/manifest.json',
+    '/icon-192x192.png',
+    '/icon-512x512.png',
     'https://cdn.jsdelivr.net/npm/jsmediatags@3.9.7/dist/jsmediatags.min.js'
 ];
 
@@ -20,7 +17,9 @@ self.addEventListener('install', (event) => {
     self.skipWaiting();
     event.waitUntil(
         caches.open(CACHE_NAME).then((cache) => {
-            return cache.addAll(urlsToCache);
+            return cache.addAll(urlsToCache).catch((err) => {
+                console.error('Failed to pre-cache some assets:', err);
+            });
         })
     );
 });
@@ -33,25 +32,36 @@ self.addEventListener('activate', (event) => {
             await Promise.all(cacheNames.map(name => {
                 if (name !== CACHE_NAME && name !== RUNTIME_CACHE) return caches.delete(name);
             }));
+            // クライアントの制御を要求 (即座に新しい Service Worker を有効化)
             await self.clients.claim();
         })()
     );
 });
 
-// Utility: respond with cache-first for app shell, network-first for CDN, fallback to cache for navigation
 self.addEventListener('fetch', (event) => {
     const req = event.request;
     const url = new URL(req.url);
 
-    // Navigation requests -> serve app shell (index.html) from cache first
-    if (req.mode === 'navigate') {
+    // Skip non-GET requests
+    if (req.method !== 'GET') return;
+
+    // 1. Navigation Request (HTMLページ) の処理: index.html を返す
+    if (req.mode === 'navigate' && url.pathname.startsWith('/')) {
         event.respondWith(
-            caches.match('./').then(resp => resp || fetch(req).catch(() => caches.match('./')))
+            caches.match('/index.html').then(cached => cached || fetch(req).catch(() => caches.match('/index.html')))
         );
         return;
     }
 
-    // CDN (jsdelivr) -> network-first then cache
+    // 2. App-shell assets (Cache-First) - Absolute paths only
+    if (urlsToCache.some(cacheUrl => url.pathname === cacheUrl || url.pathname === cacheUrl.slice(1) && cacheUrl.startsWith('/'))) {
+         event.respondWith(
+            caches.match(req).then(cached => cached || fetch(req).catch(() => caches.match('/index.html'))) // フォールバックは /index.html に
+        );
+        return;
+    }
+    
+    // 3. CDN (jsdelivr) -> network-first then cache
     if (url.origin !== location.origin && url.hostname.includes('jsdelivr.net')) {
         event.respondWith(
             fetch(req).then(networkRes => {
@@ -64,7 +74,7 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // For same-origin static assets -> cache-first
+    // 4. Other same-origin static assets -> cache-first/runtime-caching
     event.respondWith(
         caches.match(req).then(cached => cached || fetch(req).then(networkRes => {
             // runtime cache for fetched assets (small files)
@@ -75,9 +85,10 @@ self.addEventListener('fetch', (event) => {
         }).catch(() => {
             // if request is for an image, return a transparent 1x1 PNG fallback (optional)
             if (req.destination === 'image') {
-                return new Response('', { status: 404 });
+                return new Response(null, { status: 404 });
             }
-            return caches.match('./');
+            // For other failing same-origin requests, return index.html as a last resort fallback
+            return caches.match('/index.html');
         }))
     );
 });
