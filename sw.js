@@ -1,5 +1,5 @@
 // キャッシュ名のバージョンを更新 (変更があるたびにバージョンを上げてください)
-const CACHE_NAME = 'dmplayer-v2.0.17'; // ⭐ バージョンを上げて、新しいService Workerを強制的にインストールさせる
+const CACHE_NAME = 'dmplayer-v2.0.16'; // ⭐ バージョンを上げて、新しいService Workerを強制的にインストールさせる
 const RUNTIME_CACHE = 'dmplayer-runtime-v1';
 
 // ⭐【修正箇所】GitHub Pagesのプロジェクトパスを定義
