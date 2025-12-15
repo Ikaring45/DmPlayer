@@ -814,82 +814,89 @@
     <audio id="player" preload="auto"></audio>
   </div>
 
-  <script>// ** PWA Service Worker Registration **
-// ** PWA Service Worker Registration **
-
-// ⭐ [固定パス強制修正] PWAモードでのURL修正をService Worker登録より先に実行
-const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-
-// 現在のURLにPWA特有のクエリパラメータがあるかチェック
-const hasPwaQuery = window.location.search.includes('homescreen') || 
-                      window.location.search.includes('standalone') ||
-                      window.location.search.includes('source') || 
-                      window.location.search.includes('utm');
-
-// ⭐ [重要] ユーザーが指定した固定の目標パスを設定
-// PWAのルートとしてこのパスに強制リダイレクトされます
-const TARGET_CLEAN_PATH = '/dmplayer45.github.io/'; 
-
-if (isStandalone || hasPwaQuery) {
-    // 目標のクリーンなフルURLを構築
-    const targetCleanUrl = window.location.origin + TARGET_CLEAN_PATH;
-    
-    // 現在のクリーンなパス (クエリ/ハッシュなし)
-    const currentCleanUrl = window.location.origin + window.location.pathname;
-
-    // 1. URLにクエリ/ハッシュがある場合 AND/OR 2. 現在のパスが目標パスと異なる場合
-    if (window.location.search || window.location.hash || currentCleanUrl !== targetCleanUrl) {
+  <script>
+  <script>
+    // ⭐⭐⭐ [緊急 PWA URL 強制リダイレクト] ⭐⭐⭐
+    // このIIFE (即時実行関数) は、DOMロードを待たずにスクリプト解析時に即座に実行されます。
+    (function() {
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
         
-        console.log("PWA mode detected, redirecting from:", window.location.href, "to target URL:", targetCleanUrl);
-        
-        // 履歴に残さずにリダイレクトを実行
-        window.location.replace(targetCleanUrl);
-        
-        // リダイレクトが発生したため、このスクリプトの残りの部分の実行を中止
-        throw new Error("PWA Redirecting"); 
-    }
-}
-// ⭐ [固定パス強制修正終わり]
+        // PWAモードであるか、またはURLにクエリ/ハッシュが存在する場合をチェック
+        const hasPwaDebris = window.location.search.length > 0 || 
+                             window.location.hash.length > 0 ||
+                             isStandalone; 
 
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js', { scope: './' })
-    .then(reg => {
-        console.log('ServiceWorker registered:', reg);
-        showNotification('Service Worker 登録済み', false, 2000);
+        // ユーザーが指定した固定の目標パスを設定
+        // 末尾の dmp4.html は不要と判断し、ユーザーが要望したパスに合わせます
+        const TARGET_PATH = '/dmplayer45.github.io/'; 
 
-        // 新しい SW がインストールされたらクライアントに通知
-        reg.addEventListener('updatefound', () => {
-            const newWorker = reg.installing;
-            newWorker.addEventListener('statechange', () => {
-                if (newWorker.state === 'installed') {
-                    if (navigator.serviceWorker.controller) {
-                        // 更新適用可能
-                        showNotification('新しいバージョンを検出しました。ページをリロードすると更新されます。', false, 4000);
-                    } else {
-                        // 初回インストール
-                        showNotification('アプリがオフラインで使用できるようになりました。', false, 3000);
+        if (hasPwaDebris) {
+            // 目標のクリーンなフルURLを構築
+            const targetCleanUrl = window.location.origin + TARGET_PATH;
+            
+            // 現在のURLのクリーンな状態 (クエリ/ハッシュなし)
+            const currentUrlCleaned = window.location.origin + window.location.pathname;
+
+            // 現在のクリーンなパスが目標パスと異なる、またはクエリ/ハッシュがある場合
+            if (currentUrlCleaned !== targetCleanUrl || window.location.search.length > 0 || window.location.hash.length > 0) {
+                
+                console.log("PWA launch detected. Forcing redirect to:", targetCleanUrl);
+                
+                // 履歴を残さずにリダイレクトを実行
+                window.location.replace(targetCleanUrl);
+                
+                // スクリプトの実行を即座に中止し、リダイレクト処理を優先
+                throw new Error("PWA Redirecting"); 
+            }
+        }
+    })();
+    // ⭐⭐⭐ [緊急 PWA URL 強制リダイレクト終わり] ⭐⭐⭐
+
+
+    // ** PWA Service Worker Registration **
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js', { scope: './' })
+        .then(reg => {
+            console.log('ServiceWorker registered:', reg);
+            showNotification('Service Worker 登録済み', false, 2000);
+
+            // 新しい SW がインストールされたらクライアントに通知
+            reg.addEventListener('updatefound', () => {
+                const newWorker = reg.installing;
+                newWorker.addEventListener('statechange', () => {
+                    if (newWorker.state === 'installed') {
+                        if (navigator.serviceWorker.controller) {
+                            // 更新適用可能
+                            showNotification('新しいバージョンを検出しました。ページをリロードすると更新されます。', false, 4000);
+                        } else {
+                            // 初回インストール
+                            showNotification('アプリがオフラインで使用できるようになりました。', false, 3000);
+                        }
                     }
+                });
+            });
+
+            // 早期に新しいSWを有効化したい場合（開発時向け）
+            navigator.serviceWorker.addEventListener('message', (ev) => {
+                if (ev.data && ev.data.type === 'SKIP_WAITING') {
+                    navigator.serviceWorker.getRegistration().then(reg => {
+                        if (reg && reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+                    });
                 }
             });
-        });
-
-        // 早期に新しいSWを有効化したい場合（開発時向け）
-        navigator.serviceWorker.addEventListener('message', (ev) => {
-            if (ev.data && ev.data.type === 'SKIP_WAITING') {
-                navigator.serviceWorker.getRegistration().then(reg => {
-                    if (reg && reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-                });
+        }).catch(err => {
+            // リダイレクトによって発生したエラーは無視する
+            if (err.message !== "PWA Redirecting") { 
+                console.warn('ServiceWorker registration failed:', err);
+                showNotification('Service Worker の登録に失敗しました。', true, 3000);
             }
         });
-    }).catch(err => {
-        // リダイレクトによって発生したエラーは無視する
-        if (err.message !== "PWA Redirecting") { 
-            console.warn('ServiceWorker registration failed:', err);
-            showNotification('Service Worker の登録に失敗しました。', true, 3000);
-        }
-    });
-}
+    }
     
+    // --- グローバル変数 ---
+    const playlists = [];
+// ... (以下の既存のコードは変更不要です)
+// ...    
     // --- グローバル変数 ---
     const playlists = [];
     const PLAYER_STATE_KEY = 'dmplayer_state_v3'; 
