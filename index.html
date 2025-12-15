@@ -897,20 +897,20 @@
     const playlists = [];
     const PLAYER_STATE_KEY = 'dmplayer_state_v3'; 
     const playlists = [];
-let currentIndex = 0;
-let isLoop = 'off';'off', 'all', 'single'
-let isShuffle = false;
-let isSeeking = false; /
-let rafId;
-let peakLevelL = 0;
-let peakLevelR = 0;
-const peakDecayRate = 0.98;/1 ピークホールドの減衰率
-let isConnected = false;
-let CROSSFADE_DURATION = 1.5;
-const DEFAULT_COVER_SRC = "data: image/svg+xml;utf8, <svg xmlns='http://www.w
-let nextTrackNotificationSent = false;
-let isDebugging = false;
-let nextTrackNotificationEnabled = true;
+    let currentIndex = 0;
+    let isLoop = 'off';'off', 'all', 'single'
+    let isShuffle = false;
+    let isSeeking = false; /
+    let rafId;
+    let peakLevelL = 0;
+    let peakLevelR = 0;
+    const peakDecayRate = 0.98;/1 ピークホールドの減衰率
+    let isConnected = false;
+    let CROSSFADE_DURATION = 1.5;
+    const DEFAULT_COVER_SRC = "data: image/svg+xml;utf8, <svg xmlns='http://www.w
+    let nextTrackNotificationSent = false;
+    let isDebugging = false;
+    let nextTrackNotificationEnabled = true;
     
     // DOM要素
     let audioList, player, notificationContainer, settingsOverlay, debugToggle, nextTrackNotificationToggle;
