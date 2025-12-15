@@ -815,7 +815,6 @@
   </div>
 
   <script>
-  <script>
     // ⭐⭐⭐ [緊急 PWA URL 強制リダイレクト] ⭐⭐⭐
     // このIIFE (即時実行関数) は、DOMロードを待たずにスクリプト解析時に即座に実行されます。
     (function() {
@@ -893,6 +892,96 @@
         });
     }
     
+// --- [設定/トラック詳細 関連のロジック] ---
+// ⭐ 設定タブの復活ロジック
+function showSettings() {
+    if (settingsOverlay) {
+        settingsOverlay.classList.add('show');
+        // 設定画面を開いたら、アートワークの裏面（歌詞）は隠す
+        coverArtContainer.classList.remove('flipped');
+    }
+}
+
+function hideSettings() {
+    if (settingsOverlay) {
+        settingsOverlay.classList.remove('show');
+    }
+}
+
+// ⭐ トラック詳細の復活ロジック
+function showTrackDetails() {
+    // 表示前に最新の情報を詳細パネルに反映させる
+    if (playlists.length > 0 && currentIndex !== null) {
+        updateTrackDisplay(playlists[currentIndex]);
+    }
+
+    if (trackDetailsOverlay) {
+        trackDetailsOverlay.classList.add('show');
+        // 詳細画面を開いたら、アートワークの裏面（歌詞）は隠す
+        coverArtContainer.classList.remove('flipped');
+    }
+}
+
+function hideTrackDetails() {
+    if (trackDetailsOverlay) {
+        trackDetailsOverlay.classList.remove('show');
+    }
+}
+
+// --- [Media Session API の実装と最適化] ---
+// ⭐ iOS PWAに必須のロジック最適化: Media Session APIによるOSレベルのコントロール対応
+
+/**
+ * 現在のトラック情報でMedia Sessionのメタデータを更新
+ * @param {object} track - 現在のトラックオブジェクト
+ */
+function updateMediaSessionMetadata(track) {
+    if ('mediaSession' in navigator) {
+        const displayTitle = track.customTitle || track.title || 'Unknown Title';
+        const displayArtist = track.customArtist || track.artist || 'Unknown Artist';
+        
+        navigator.mediaSession.metadata = new MediaMetadata({
+            title: displayTitle,
+            artist: displayArtist,
+            album: track.album || 'DmPlayer PWA', // アルバム情報があれば使用
+            artwork: [
+                { src: track.albumArtURL || 'icon-192x192.png', sizes: '192x192', type: 'image/png' },
+                { src: track.albumArtURL || 'icon-512x512.png', sizes: '512x512', type: 'image/png' }
+            ]
+        });
+    }
+}
+
+/**
+ * Media Sessionの操作ハンドラを設定 (再生/停止/次/前)
+ */
+function setupMediaSessionHandlers() {
+    if ('mediaSession' in navigator) {
+        // 再生/一時停止ハンドラはplayerのメソッドを直接指定
+        navigator.mediaSession.setActionHandler('play', () => handleUserAction(player.play));
+        navigator.mediaSession.setActionHandler('pause', () => handleUserAction(player.pause));
+        
+        // 次の曲/前の曲ハンドラ
+        navigator.mediaSession.setActionHandler('previoustrack', () => handleUserAction(playPrev));
+        navigator.mediaSession.setActionHandler('nexttrack', () => handleUserAction(playNext));
+        
+        // シークボタンのハンドラ (iOSでロック画面に表示されるわけではないが、Androidなどで有用)
+        try {
+            navigator.mediaSession.setActionHandler('seekbackward', (details) => {
+                player.currentTime = Math.max(0, player.currentTime - (details.seekOffset || 10));
+                showNotification(`◀️ ${details.seekOffset || 10}秒巻き戻し`, false, 500);
+            });
+            navigator.mediaSession.setActionHandler('seekforward', (details) => {
+                player.currentTime = Math.min(player.duration, player.currentTime + (details.seekOffset || 10));
+                showNotification(`▶️ ${details.seekOffset || 10}秒スキップ`, false, 500);
+            });
+        } catch (e) {
+            console.log("MediaSession seek handlers not fully supported.");
+        }
+    }
+}
+// --- [END Media Session API] ---
+
     // --- グローバル変数 ---
     const playlists = [];
     const PLAYER_STATE_KEY = 'dmplayer_state_v3'; 
