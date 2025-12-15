@@ -817,44 +817,39 @@
   <script>// ** PWA Service Worker Registration **
 // ** PWA Service Worker Registration **
 
-// ⭐ [修正 1] PWAモードでのURL修正をService Worker登録より先に実行
+// ⭐ [固定パス強制修正] PWAモードでのURL修正をService Worker登録より先に実行
 const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+
+// 現在のURLにPWA特有のクエリパラメータがあるかチェック
 const hasPwaQuery = window.location.search.includes('homescreen') || 
                       window.location.search.includes('standalone') ||
-                      window.location.search.includes('source');
+                      window.location.search.includes('source') || 
+                      window.location.search.includes('utm');
+
+// ⭐ [重要] ユーザーが指定した固定の目標パスを設定
+// PWAのルートとしてこのパスに強制リダイレクトされます
+const TARGET_CLEAN_PATH = '/dmplayer45.github.io/'; 
 
 if (isStandalone || hasPwaQuery) {
-    const url = new URL(window.location.href);
+    // 目標のクリーンなフルURLを構築
+    const targetCleanUrl = window.location.origin + TARGET_CLEAN_PATH;
     
-    // PWA関連のクエリパラメータを削除
-    url.searchParams.delete('homescreen');
-    url.searchParams.delete('standalone');
-    url.searchParams.delete('source');
-    
-    // URLのパスがファイル名（例: dmp4.html）を含まない場合、それを含める
-    // GitHub Pagesのルート (https://ikaring45.github.io/) の場合は、パスをクリーンアップ
-    let cleanPath = url.pathname;
-    
-    // index.html または / の場合は、クエリを削除した状態のパスに
-    if (cleanPath === '/' || cleanPath.endsWith('/index.html')) {
-        cleanPath = '/';
-    }
-    
-    // 新しいURLオブジェクトを作成し直し、クエリがない状態にする
-    const cleanUrl = url.origin + cleanPath;
+    // 現在のクリーンなパス (クエリ/ハッシュなし)
+    const currentCleanUrl = window.location.origin + window.location.pathname;
 
-    // 現在のURL（クエリ付き）とクリーンなURL（クエリなし）が異なる場合
-    if (window.location.href.replace(/\?.*$/, '') !== cleanUrl) {
-        if (window.location.href.includes('?')) {
-            console.log("PWA mode detected, redirecting to clean URL:", cleanUrl);
-            // 履歴に残さずにリダイレクト
-            window.location.replace(cleanUrl);
-            // リダイレクトが発生した場合は、ここで処理を中断
-            throw new Error("PWA Redirecting"); 
-        }
+    // 1. URLにクエリ/ハッシュがある場合 AND/OR 2. 現在のパスが目標パスと異なる場合
+    if (window.location.search || window.location.hash || currentCleanUrl !== targetCleanUrl) {
+        
+        console.log("PWA mode detected, redirecting from:", window.location.href, "to target URL:", targetCleanUrl);
+        
+        // 履歴に残さずにリダイレクトを実行
+        window.location.replace(targetCleanUrl);
+        
+        // リダイレクトが発生したため、このスクリプトの残りの部分の実行を中止
+        throw new Error("PWA Redirecting"); 
     }
 }
-// ⭐ [修正 1 終わり]
+// ⭐ [固定パス強制修正終わり]
 
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js', { scope: './' })
@@ -887,7 +882,8 @@ if ('serviceWorker' in navigator) {
             }
         });
     }).catch(err => {
-        if (err.message !== "PWA Redirecting") { // リダイレクトエラーは無視
+        // リダイレクトによって発生したエラーは無視する
+        if (err.message !== "PWA Redirecting") { 
             console.warn('ServiceWorker registration failed:', err);
             showNotification('Service Worker の登録に失敗しました。', true, 3000);
         }
